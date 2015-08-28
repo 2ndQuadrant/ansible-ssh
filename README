@@ -1,0 +1,34 @@
+ansible-ssh
+-----------
+
+This program invokes ssh with the same arguments that ansible does to
+connect to hosts defined in its inventory:
+
+    inventory:
+        foo ansible_ssh_host=x.y.z ansible_ssh_user=foo …
+
+    $ ansible-ssh foo
+
+Using it saves having to duplicate information from the inventory into
+~/.ssh/config files in order to ssh to them interactively.
+
+There's an independent ansible-shell program that tries to execute
+ansible modules on multiple hosts in parallel. This program has nothing
+to do with that. It just lets you ssh to ONE host using information from
+the Ansible inventory.
+
+Note that the "ssh_extra_args" PR against the ansible repository would
+make it possible to configure per-host or per-group ProxyCommands to use
+jump hosts. We could support that in this program already, but it would
+be of limited use until the PR is merged upstream since ansible itself
+would not be able to connect to those hosts otherwise.
+
+https://github.com/ansible/ansible/pull/11908
+
+The initial prototype of this code was written by Carlos Chapi. It's
+still pretty rough around the edges, but the basic functionality works.
+
+This code is released under the MIT license.
+
+--
+Abhijit Menon-Sen <ams@2ndQuadrant.com>

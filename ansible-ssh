@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+#
+# This script is an inventory-aware ssh wrapper that eliminates the need
+# to repeat information from the inventory in .ssh/config.
+
+import os
+import sys
+from ansible.inventory import Inventory
+from ansible.parsing import DataLoader
+from ansible.vars import VariableManager
+from ansible.cli import CLI
+
+def main(argv):
+    # We require at least one host pattern on the command line (but we
+    # may accept other options in future).
+    if len(argv) < 2:
+        print "You must specify at least one hostname/pattern"
+        return -1
+
+    # Basic Ansible initialisation
+    loader = DataLoader()
+    variable_manager = VariableManager()
+    parser = CLI.base_parser(
+        usage='%prog <host-pattern>',
+        runtask_opts=True,
+    )
+    options, args = parser.parse_args()
+    pattern = args[0]
+
+    # Load the inventory and find hosts matching the specified pattern.
+    inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
+    variable_manager.set_inventory(inventory)
+    hosts = inventory.list_hosts(pattern)
+
+    # We can't ssh to more than one matching host.
+    if len(hosts) != 1:
+        print "Your host pattern matched %d hosts" % len(hosts)
+        return -1
+
+    # Build ssh arguments for this host
+    host = hosts[0]
+    ssh_args = ['ssh']
+
+    if ('ansible_ssh_private_key_file' in host.vars
+        and host.vars['ansible_ssh_private_key_file'] is not None):
+        ssh_args += ("-o", "IdentityFile=\"{0}\"".format(os.path.expanduser(host.vars['ansible_ssh_private_key_file'])))
+
+    if ('ansible_ssh_port' in host.vars
+        and host.vars['ansible_ssh_port'] is not None):
+        ssh_args += ("-o", "Port={0}".format(host.vars['ansible_ssh_port']))
+
+    if ('ansible_ssh_user' in host.vars
+        and host.vars['ansible_ssh_user'] is not None):
+        ssh_args += ("-o", "User={0}".format(host.vars['ansible_ssh_user']))
+
+    ssh_args.append(host.ipv4_address)
+
+    # Launch ssh
+    os.execl('/usr/bin/ssh', *ssh_args)
+
+if __name__=='__main__':
+    main(sys.argv)
